@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scores Table</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .nav-bar {
+            margin-bottom: 20px;
+        }
+        .nav-bar a {
+            margin-right: 15px;
+            padding: 10px;
+            text-decoration: none;
+            color: black;
+            border: 1px solid black;
+            border-radius: 5px;
+        }
+        .nav-bar a.active {
+            background-color: #f2f2f2;
+        }
+    </style>
+    <script>
+        function showTable(diff) {
+            const tables = document.querySelectorAll('.score-table');
+            tables.forEach(table => {
+                if (table.id === diff) {
+                    table.style.display = 'table';
+                } else {
+                    table.style.display = 'none';
+                }
+            });
+
+            const navLinks = document.querySelectorAll('.nav-bar a');
+            navLinks.forEach(link => {
+                if (link.getAttribute('data-diff') === diff) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }
+
+        function parseScore(scoreStr) {
+            return parseInt(scoreStr.replace(/,/g, ''), 10);
+        }
+
+        function calculateRating(score, baseRating) {
+            if (score >= 1009000) {
+                return baseRating + 2.15;
+            } else if (score >= 1007500) {
+                return baseRating + 2.0 + ((score - 1007500) * 0.15) / 1500;
+            } else if (score >= 1005000) {
+                return baseRating + 1.5 + ((score - 1005000) * 0.5) / 2500;
+            } else if (score >= 1000000) {
+                return baseRating + 1.0 + ((score - 1000000) * 0.5) / 5000;
+            } else if (score >= 975000) {
+                return baseRating;
+            } else if (score >= 925000) {
+                return baseRating - 3.0;
+            } else if (score >= 900000) {
+                return baseRating - 5.0;
+            } else if (score >= 800000) {
+                return (baseRating - 5.0) / 2;
+            } else {
+                return 0;
+            }
+        }
+
+        function insertRatings() {
+            const tables = document.querySelectorAll('.score-table');
+            tables.forEach(table => {
+                const rows = Array.from(table.querySelectorAll('tbody tr'));
+                rows.forEach(row => {
+                    const score = parseScore(row.querySelector('.score').textContent);
+                    const baseRating = parseFloat(row.querySelector('.base-rating').textContent);
+                    const rating = calculateRating(score, baseRating);
+                    row.querySelector('.rating').textContent = rating.toFixed(2);
+                });
+
+                // Sort rows by rating in descending order
+                rows.sort((a, b) => {
+                    const ratingA = parseFloat(a.querySelector('.rating').textContent);
+                    const ratingB = parseFloat(b.querySelector('.rating').textContent);
+                    return ratingB - ratingA;
+                });
+
+                // Append sorted rows back to the table
+                const tbody = table.querySelector('tbody');
+                tbody.innerHTML = '';
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        }
+
+        window.onload = function() {
+            // Default to show "Basic" difficulty
+            showTable('Basic');
+            // Insert ratings after the page has loaded
+            insertRatings();
+        }
+    </script>
+</head>
+<body>
+    <h1>Music Scores Table</h1>
+    <div class="nav-bar">
+        {% set difficulties = ["Basic", "Advanced", "Expert", "Master"] %}
+        {% for diff in difficulties %}
+            <a href="javascript:void(0)" data-diff="{{ diff }}" onclick="showTable('{{ diff }}')">{{ diff }}</a>
+        {% endfor %}
+    </div>
+    {% for diff in difficulties %}
+        {% if diff in file_content %}
+            <table id="{{ diff }}" class="score-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Music Title</th>
+                        <th>High Score</th>
+                        <th>定數</th>
+                        <th>評分</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for score in file_content[diff] %}
+                        <tr>
+                            <td>{{ score.music_title }}</td>
+                            <td class="score">{{ score.high_score }}</td>
+                            <td class="base-rating">{{ score.const }}</td>
+                            <td class="rating"></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    {% endfor %}
+</body>
+</html>
