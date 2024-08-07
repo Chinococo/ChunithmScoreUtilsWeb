@@ -225,9 +225,9 @@ class SegaLogin:
         all_scores = {}
         all_scores["Player Name"] = self.playerData.playerName
         all_scores["Player Rating"] = self.playerData.playerRating
-        for difficulty in ["Basic", 'Advanced', 'Expert', 'Master','Ultima','Recent']:
+        for difficulty in ["Basic", 'Advanced', 'Expert', 'Master','Ultima','Recent','B30']:
             all_scores[difficulty]=[]
-        for file_name in ["Basic", 'Advanced', 'Expert', 'Master','Ultima','Recent']:
+        for file_name in ["Basic", 'Advanced', 'Expert', 'Master','Ultima','Recent','B30']:
 
             content = ""
             with open(f"webScore/{self.playerData.playerName}/GetScore{file_name}.html", mode="r",

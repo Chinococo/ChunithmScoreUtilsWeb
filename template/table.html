@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <title>Scores Table</title>
     <style>
         table {
@@ -34,26 +35,29 @@
         .nav-bar a.active {
             background-color: #f2f2f2;
         }
+        .score-table img {
+            width: 50px;
+            height: 50px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin-top: 20px;
+        }
     </style>
     <script>
         function showTable(diff) {
             const tables = document.querySelectorAll('.score-table');
             tables.forEach(table => {
-                if (table.id === diff) {
-                    table.style.display = 'table';
-                } else {
-                    table.style.display = 'none';
-                }
+                table.style.display = (table.id === diff) ? 'table' : 'none';
             });
 
             const navLinks = document.querySelectorAll('.nav-bar a');
             navLinks.forEach(link => {
-                if (link.getAttribute('data-diff') === diff) {
-                    link.classList.add('active');
-                } else {
-                    link.classList.remove('active');
-                }
+                link.classList.toggle('active', link.getAttribute('data-diff') === diff);
             });
+
+            updateCharts(diff);
         }
 
         function parseScore(scoreStr) {
@@ -107,9 +111,89 @@
             });
         }
 
+        function updateCharts(diff) {
+            const table = document.getElementById(diff);
+            if (!table) return;
+
+            const rows = Array.from(table.querySelectorAll('tbody tr')).filter(row => parseScore(row.querySelector('.score').textContent) > 0);
+            const groupedByRating = rows.reduce((acc, row) => {
+                const baseRating = row.querySelector('.base-rating').textContent;
+                if (!acc[baseRating]) acc[baseRating] = [];
+                acc[baseRating].push(row);
+                return acc;
+            }, {});
+
+            // Clear previous charts
+            const chartContainer = document.getElementById('chart-container');
+            chartContainer.innerHTML = '';
+
+            Object.keys(groupedByRating).forEach(baseRating => {
+                const ratingRows = groupedByRating[baseRating];
+                const labels = ratingRows.map(row => row.querySelector('td:nth-child(2)').textContent); // Music Title
+                const scores = ratingRows.map(row => parseScore(row.querySelector('.score').textContent));
+
+                const minScore = Math.min(...scores);
+                const maxScore = Math.max(...scores);
+
+                const canvas = document.createElement('canvas');
+                chartContainer.appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+
+                new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `Base Rating ${baseRating} vs. Scores`,
+                            data: scores.map((score, index) => ({ x: index, y: score })),
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: scores.map(score => score >= 1000000 ? 'rgba(255, 99, 132, 1)' : 'rgba(54, 162, 235, 1)'),
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                min: minScore,
+                                max: maxScore,
+                                title: {
+                                    display: true,
+                                    text: 'Score'
+                                }
+                            },
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                title: {
+                                    display: true,
+                                    text: 'Music Title'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return labels[value];
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const index = context.dataIndex;
+                                        return `${labels[index]}: ${scores[index]}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
         window.onload = function() {
             // Default to show "Basic" difficulty
-            showTable('Basic');
+            showTable('Master');
             // Insert ratings after the page has loaded
             insertRatings();
         }
@@ -118,11 +202,12 @@
 <body>
     <h1>Music Scores Table</h1>
     <div class="nav-bar">
-        {% set difficulties = ["Basic", "Advanced", "Expert", "Master","Ultima","Recent"] %}
+        {% set difficulties = ["Basic", "Advanced", "Expert", "Master", "Ultima", "Recent", "B30", "Chart"] %}
         {% for diff in difficulties %}
             <a href="javascript:void(0)" data-diff="{{ diff }}" onclick="showTable('{{ diff }}')">{{ diff }}</a>
         {% endfor %}
     </div>
+
     {% for diff in difficulties %}
         {% if diff in file_content %}
             <table id="{{ diff }}" class="score-table" style="display: none;">
@@ -131,7 +216,7 @@
                         <th>Music Images</th>
                         <th>Music Title</th>
                         <th>High Score</th>
-                        <th>定數</th>
+                        <th>定数</th>
                         <th>評分</th>
                     </tr>
                 </thead>
@@ -149,5 +234,7 @@
             </table>
         {% endif %}
     {% endfor %}
+
+    <div id="chart-container" class="chart-container"></div>
 </body>
 </html>
