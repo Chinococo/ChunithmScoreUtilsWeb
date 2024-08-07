@@ -14,7 +14,7 @@ RatingConstUpdateDate = None
 
 
 def UpdateRatingConst():
-    global const_rating,RatingConstUpdateDate
+    global const_rating, RatingConstUpdateDate
     respond = requests.get(url="https://reiwa.f5.si/chunithm_luminous.json")
     content = json.loads(respond.content.decode('utf-8-sig'))  # Decode using 'utf-8-sig'
     const_rating = {}
@@ -26,6 +26,7 @@ def UpdateRatingConst():
     NonwDate = NowTime.strftime("%Y-%m-%d")
     RatingConstUpdateDate = NonwDate
 
+
 class PlayerData:
     def __init__(self, playerName, playerRating, playerMaxRating, token):
         self.playerName = playerName
@@ -35,7 +36,13 @@ class PlayerData:
 
 
 class SegaLogin:
+    '''
+        初始化 SegaLogin 類的實例。
+        @param sega_id: 用戶的 Sega ID
+        @param password: 用戶的密碼
+    '''
     def __init__(self, sega_id, password):
+
         self.sega_id = sega_id
         self.password = password
         self.session = requests.Session()
@@ -46,6 +53,9 @@ class SegaLogin:
         self.playerData = None
 
     def Login(self):
+        '''
+            登入帳號
+        '''
         login_web_url = "https://lng-tgk-aime-gw.am-all.net/common_auth/login?site_id=chuniex&redirect_url=https://chunithm-net-eng.com/mobile/&back_url=https://chunithm.sega.com/"
         login_url = "https://lng-tgk-aime-gw.am-all.net/common_auth/login/sid/"
         # Visit the login page to initialize cookies
@@ -56,6 +66,7 @@ class SegaLogin:
             'sid': self.sega_id,
             'password': self.password
         }
+        print(self.sega_id,self.password)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Host": "lng-tgk-aime-gw.am-all.net",
@@ -65,7 +76,8 @@ class SegaLogin:
         }
         # Perform the login
         respond = self.session.post(login_url, data=data, headers=headers)
-        if len(respond.history)<2:
+        print(respond.history)
+        if len(respond.history) < 2:
             return False
         next = respond.history[1].url
         self.session.get(next)
@@ -205,20 +217,24 @@ class SegaLogin:
                 return False
 
     def ParseWebScore(self):
-        difficulties = ["Basic", 'Advanced', 'Expert', 'Master']
         all_scores = {}
         all_scores["Player Name"] = self.playerData.playerName
         all_scores["Player Rating"] = self.playerData.playerRating
-        for difficulty in difficulties:
+        for difficulty in ["Basic", 'Advanced', 'Expert', 'Master','Ultima','Recent']:
+            all_scores[difficulty]=[]
+        for file_name in ["Basic", 'Advanced', 'Expert', 'Master','Ultima','Recent']:
+
             content = ""
-            with open(f"webScore/{self.playerData.playerName}/GetScore{difficulty}.html", mode="r",
+            with open(f"webScore/{self.playerData.playerName}/GetScore{file_name}.html", mode="r",
                       encoding='utf-8') as f:
                 content = f.read()
             soup = BeautifulSoup(content, "html.parser")
-            scores = soup.findAll("div", class_=f"w388 musiclist_box bg_{difficulty.lower()}")
-            difficulty_scores = []
+            pattern = re.compile(r"\bw388 musiclist_box\b.*\bbg_(basic|advanced|expert|master|ultima)\b")
+            scores = soup.findAll("div", class_=pattern)
 
             for score in scores:
+                score_classes = score.get("class")  # 拿到他的 class
+                song_diffcult = score_classes[2][3:].capitalize() # 打印 class 屬性以便檢查
                 music_title = score.find("div", class_="music_title").text.strip()
                 try:
                     high_score = score.find("div", class_="play_musicdata_highscore").find("span",
@@ -226,19 +242,24 @@ class SegaLogin:
                 except Exception as e:
                     high_score = "0"
                 try:
-                    diff = difficulty[:3].upper()
+                    diff = song_diffcult[:3].upper()
                     const_rating_song = const_rating[music_title][diff]
                     print(const_rating_song)
                 except Exception as e:
-                    print("沒定數")
                     const_rating_song = 0
-                difficulty_scores.append({
-                    "music_title": music_title,
-                    "high_score": high_score,
-                    "const": const_rating_song  # const_rating[music_title][diff]["const"]
-                })
+                if file_name == "Recent":
+                    all_scores[file_name].append({
+                        "music_title": music_title,
+                        "high_score": high_score,
+                        "const": const_rating_song  # const_rating[music_title][diff]["const"]
+                    })
+                else:
+                    all_scores[song_diffcult].append({
+                        "music_title": music_title,
+                        "high_score": high_score,
+                        "const": const_rating_song  # const_rating[music_title][diff]["const"]
+                    })
 
-            all_scores[difficulty] = difficulty_scores
         # 將結果寫入 JSON 文件
         if not os.path.exists(f"score/{self.playerData.playerName}"):
             os.makedirs(f"score/{self.playerData.playerName}")
@@ -252,6 +273,45 @@ class SegaLogin:
         with open(file_path, mode="r", encoding="utf-8") as json_file:
             file_content = json.load(json_file)
         return file_content
+
+    def GetRecent(self):
+        Basic_url = f"https://chunithm-net-eng.com/mobile/home/playerData/ratingDetailBest/"
+        headers = {
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja;q=0.6",
+            "Connection": "keep-alive",
+            "Host": "chunithm-net-eng.com",
+            "Referer": "https://chunithm-net-eng.com/mobile/home/",
+            "sec-ch-ua": '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
+            "sec-ch-ua-mobile": "?1",
+            "sec-ch-ua-platform": '"Android"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        respond = self.session.get(
+            url=Basic_url,
+            allow_redirects=True,
+            headers=headers,
+            cookies=self.session.cookies,
+            timeout=10  # 设置超时时间（秒）
+        )
+        # print(respond.status_code)
+        directory = f"webScore/{self.playerData.playerName}"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        if respond.status_code == 200:
+            with open(f"webScore/{self.playerData.playerName}/GetScoreRecent.html", mode="w",
+                      encoding="utf-8") as f:
+                f.write(respond.content.decode("utf-8"))
+            return True
+        else:
+            return False
+
+
 
 
 # 首页，展示登录表单
@@ -269,16 +329,13 @@ def login():
     NonwDate = NowTime.strftime("%Y-%m-%d")
     if RatingConstUpdateDate is None or RatingConstUpdateDate < NonwDate:
         UpdateRatingConst()
-
-
-
     username = request.form['username']
     password = request.form['password']
     segaLogin = SegaLogin(username, password)
     if segaLogin.Login():
         session = segaLogin.IntoGenere()
         if session:
-            diffcult = ["Basic", 'Advanced', 'Expert', 'Master']
+            diffcult = ["Basic", 'Advanced', 'Expert', 'Master','Ultima']
             for diff in diffcult:
                 if session is not None:
                     session = segaLogin.GetScore(diff)
@@ -289,9 +346,13 @@ def login():
             file_content = segaLogin.GetScoreReport()
             if file_content is not None:
                 return render_template_string(content, file_content=file_content)
-    return "password or sega_id is not correct",404
+    return "password or sega_id is not correct", 404
     # 返回文件路径和内容
 
 
 if __name__ == '__main__':
+    #segaLogin = SegaLogin('chinococo', '0317a0317A')
+    #segaLogin.Login()
+    #segaLogin.GetRecent()
+    #segaLogin.ParseWebScore()
     app.run(port=5000)

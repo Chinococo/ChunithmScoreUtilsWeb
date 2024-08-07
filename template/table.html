@@ -118,7 +118,7 @@
 <body>
     <h1>Music Scores Table</h1>
     <div class="nav-bar">
-        {% set difficulties = ["Basic", "Advanced", "Expert", "Master"] %}
+        {% set difficulties = ["Basic", "Advanced", "Expert", "Master","Ultima","Recent"] %}
         {% for diff in difficulties %}
             <a href="javascript:void(0)" data-diff="{{ diff }}" onclick="showTable('{{ diff }}')">{{ diff }}</a>
         {% endfor %}
