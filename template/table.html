@@ -128,6 +128,7 @@
             <table id="{{ diff }}" class="score-table" style="display: none;">
                 <thead>
                     <tr>
+                        <th>Music Images</th>
                         <th>Music Title</th>
                         <th>High Score</th>
                         <th>定數</th>
@@ -137,6 +138,7 @@
                 <tbody>
                     {% for score in file_content[diff] %}
                         <tr>
+                            <td><img src="{{ score.images }}" alt="{{ score.music_title }} image"></td>
                             <td>{{ score.music_title }}</td>
                             <td class="score">{{ score.high_score }}</td>
                             <td class="base-rating">{{ score.const }}</td>

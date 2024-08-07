@@ -1,10 +1,6 @@
 import json
 import requests
-respond = requests.get(url="https://reiwa.f5.si/chunithm_luminous.json")
+respond = requests.get(url="https://dp4p6x0xfi5o9.cloudfront.net/chunithm/data.json")
 content = json.loads(respond.content.decode('utf-8-sig'))  # Decode using 'utf-8-sig'
-const_rating = {}
-for song in content:
-    const_rating[song["meta"]["title"]] = {}
-    for diffcuilt in song["data"]:
-        const_rating[song["meta"]["title"]][diffcuilt] = song["data"][diffcuilt]["const"]
-print(const_rating)
+for song in content["songs"]:
+    print(song["title"],f"https://dp4p6x0xfi5o9.cloudfront.net/chunithm/img/cover-m/{song['imageName']}")

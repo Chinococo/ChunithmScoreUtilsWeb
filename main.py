@@ -11,8 +11,7 @@ from bs4 import BeautifulSoup
 app = Flask(__name__)
 const_rating = {}
 RatingConstUpdateDate = None
-
-
+SongImages = None
 def UpdateRatingConst():
     global const_rating, RatingConstUpdateDate
     respond = requests.get(url="https://reiwa.f5.si/chunithm_luminous.json")
@@ -25,8 +24,13 @@ def UpdateRatingConst():
     NowTime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
     NonwDate = NowTime.strftime("%Y-%m-%d")
     RatingConstUpdateDate = NonwDate
-
-
+def UpdateSongImages():
+    global SongImages
+    SongImages = {}
+    respond = requests.get(url="https://dp4p6x0xfi5o9.cloudfront.net/chunithm/data.json")
+    content = json.loads(respond.content.decode('utf-8-sig'))  # Decode using 'utf-8-sig'
+    for song in content["songs"]:
+        SongImages[song["title"]] = f"https://dp4p6x0xfi5o9.cloudfront.net/chunithm/img/cover-m/{song['imageName']}"
 class PlayerData:
     def __init__(self, playerName, playerRating, playerMaxRating, token):
         self.playerName = playerName
@@ -217,6 +221,7 @@ class SegaLogin:
                 return False
 
     def ParseWebScore(self):
+        global SongImages
         all_scores = {}
         all_scores["Player Name"] = self.playerData.playerName
         all_scores["Player Rating"] = self.playerData.playerRating
@@ -247,16 +252,18 @@ class SegaLogin:
                     print(const_rating_song)
                 except Exception as e:
                     const_rating_song = 0
-                if file_name == "Recent":
+                if file_name == "Recent" or file_name == "B30":
                     all_scores[file_name].append({
                         "music_title": music_title,
                         "high_score": high_score,
+                        "images":SongImages[music_title],
                         "const": const_rating_song  # const_rating[music_title][diff]["const"]
                     })
                 else:
                     all_scores[song_diffcult].append({
                         "music_title": music_title,
                         "high_score": high_score,
+                        "images": SongImages[music_title],
                         "const": const_rating_song  # const_rating[music_title][diff]["const"]
                     })
 
@@ -275,7 +282,7 @@ class SegaLogin:
         return file_content
 
     def GetRecent(self):
-        Basic_url = f"https://chunithm-net-eng.com/mobile/home/playerData/ratingDetailBest/"
+        Basic_url = f"https://chunithm-net-eng.com/mobile/home/playerData/ratingDetailRecent/"
         headers = {
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -311,6 +318,42 @@ class SegaLogin:
         else:
             return False
 
+    def GetB30(self):
+        Basic_url = f"https://chunithm-net-eng.com/mobile/home/playerData/ratingDetailBest/"
+        headers = {
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja;q=0.6",
+            "Connection": "keep-alive",
+            "Host": "chunithm-net-eng.com",
+            "Referer": "https://chunithm-net-eng.com/mobile/home/",
+            "sec-ch-ua": '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
+            "sec-ch-ua-mobile": "?1",
+            "sec-ch-ua-platform": '"Android"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        respond = self.session.get(
+            url=Basic_url,
+            allow_redirects=True,
+            headers=headers,
+            cookies=self.session.cookies,
+            timeout=10  # 设置超时时间（秒）
+        )
+        # print(respond.status_code)
+        directory = f"webScore/{self.playerData.playerName}"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        if respond.status_code == 200:
+            with open(f"webScore/{self.playerData.playerName}/GetScoreB30.html", mode="w",
+                      encoding="utf-8") as f:
+                f.write(respond.content.decode("utf-8"))
+            return True
+        else:
+            return False
 
 
 
@@ -329,10 +372,13 @@ def login():
     NonwDate = NowTime.strftime("%Y-%m-%d")
     if RatingConstUpdateDate is None or RatingConstUpdateDate < NonwDate:
         UpdateRatingConst()
+        UpdateSongImages()
     username = request.form['username']
     password = request.form['password']
     segaLogin = SegaLogin(username, password)
     if segaLogin.Login():
+        segaLogin.GetRecent()
+        segaLogin.GetB30()
         session = segaLogin.IntoGenere()
         if session:
             diffcult = ["Basic", 'Advanced', 'Expert', 'Master','Ultima']
