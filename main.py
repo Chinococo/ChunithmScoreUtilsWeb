@@ -65,6 +65,8 @@ class SegaLogin:
         }
         # Perform the login
         respond = self.session.post(login_url, data=data, headers=headers)
+        if len(respond.history)<2:
+            return False
         next = respond.history[1].url
         self.session.get(next)
         # print(session.cookies.get_dict()["_t"])
@@ -287,7 +289,7 @@ def login():
             file_content = segaLogin.GetScoreReport()
             if file_content is not None:
                 return render_template_string(content, file_content=file_content)
-
+    return "password or sega_id is not correct",404
     # 返回文件路径和内容
 
 
