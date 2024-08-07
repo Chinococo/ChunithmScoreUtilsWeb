@@ -10,8 +10,11 @@ from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 const_rating = {}
+RatingConstUpdateDate = None
+
+
 def UpdateRatingConst():
-    global const_rating
+    global const_rating,RatingConstUpdateDate
     respond = requests.get(url="https://reiwa.f5.si/chunithm_luminous.json")
     content = json.loads(respond.content.decode('utf-8-sig'))  # Decode using 'utf-8-sig'
     const_rating = {}
@@ -19,15 +22,20 @@ def UpdateRatingConst():
         const_rating[song["meta"]["title"]] = {}
         for diffcuilt in song["data"]:
             const_rating[song["meta"]["title"]][diffcuilt] = song["data"][diffcuilt]["const"]
+    NowTime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    NonwDate = NowTime.strftime("%Y-%m-%d")
+    RatingConstUpdateDate = NonwDate
 
 class PlayerData:
-    def __init__(self, playerName, playerRating, playerMaxRating,token):
+    def __init__(self, playerName, playerRating, playerMaxRating, token):
         self.playerName = playerName
         self.playerRating = playerRating
         self.playerMaxRating = playerMaxRating
         self.token = token
+
+
 class SegaLogin:
-    def __init__(self,sega_id, password):
+    def __init__(self, sega_id, password):
         self.sega_id = sega_id
         self.password = password
         self.session = requests.Session()
@@ -36,6 +44,7 @@ class SegaLogin:
         self.formatted_date = NowDate.strftime("%Y-%m-%d")
         self.formatted_time = NowDateTime.strftime("%Y-%m-%d_%H-%M-%S")
         self.playerData = None
+
     def Login(self):
         login_web_url = "https://lng-tgk-aime-gw.am-all.net/common_auth/login?site_id=chuniex&redirect_url=https://chunithm-net-eng.com/mobile/&back_url=https://chunithm.sega.com/"
         login_url = "https://lng-tgk-aime-gw.am-all.net/common_auth/login/sid/"
@@ -80,14 +89,16 @@ class SegaLogin:
                 print("名稱", userName)
                 print("目前rating", rating)
                 print("最大rating", userMaxRating)
-                self.playerData = PlayerData(userName, rating, userMaxRating,token)
+                self.playerData = PlayerData(userName, rating, userMaxRating, token)
                 return True
             except Exception as e:
                 return False
         else:
             return False
+
     def GenerateScoreReport(self):
         ...
+
     def IntoGenere(self):
         headers = {
             "Accept": "*/*",
@@ -117,7 +128,6 @@ class SegaLogin:
             return True
         else:
             return False
-
 
     def GetScore(self, diffcult):
         Basic_url = f"https://chunithm-net-eng.com/mobile/record/musicGenre/send{diffcult}"
@@ -185,12 +195,12 @@ class SegaLogin:
             if not os.path.exists(directory):
                 os.makedirs(directory)
             if respond.status_code == 200:
-                with open(f"webScore/{self.playerData.playerName}/GetScore{diffcult}.html", mode="w", encoding="utf-8") as f:
+                with open(f"webScore/{self.playerData.playerName}/GetScore{diffcult}.html", mode="w",
+                          encoding="utf-8") as f:
                     f.write(respond.content.decode("utf-8"))
                 return True
             else:
                 return False
-
 
     def ParseWebScore(self):
         difficulties = ["Basic", 'Advanced', 'Expert', 'Master']
@@ -199,7 +209,8 @@ class SegaLogin:
         all_scores["Player Rating"] = self.playerData.playerRating
         for difficulty in difficulties:
             content = ""
-            with open(f"webScore/{self.playerData.playerName}/GetScore{difficulty}.html", mode="r", encoding='utf-8') as f:
+            with open(f"webScore/{self.playerData.playerName}/GetScore{difficulty}.html", mode="r",
+                      encoding='utf-8') as f:
                 content = f.read()
             soup = BeautifulSoup(content, "html.parser")
             scores = soup.findAll("div", class_=f"w388 musiclist_box bg_{difficulty.lower()}")
@@ -208,12 +219,13 @@ class SegaLogin:
             for score in scores:
                 music_title = score.find("div", class_="music_title").text.strip()
                 try:
-                    high_score = score.find("div", class_="play_musicdata_highscore").find("span",class_="text_b").text.strip()
+                    high_score = score.find("div", class_="play_musicdata_highscore").find("span",
+                                                                                           class_="text_b").text.strip()
                 except Exception as e:
                     high_score = "0"
                 try:
                     diff = difficulty[:3].upper()
-                    const_rating_song=const_rating[music_title][diff]
+                    const_rating_song = const_rating[music_title][diff]
                     print(const_rating_song)
                 except Exception as e:
                     print("沒定數")
@@ -221,7 +233,7 @@ class SegaLogin:
                 difficulty_scores.append({
                     "music_title": music_title,
                     "high_score": high_score,
-                    "const": const_rating_song#const_rating[music_title][diff]["const"]
+                    "const": const_rating_song  # const_rating[music_title][diff]["const"]
                 })
 
             all_scores[difficulty] = difficulty_scores
@@ -239,6 +251,7 @@ class SegaLogin:
             file_content = json.load(json_file)
         return file_content
 
+
 # 首页，展示登录表单
 @app.route('/')
 def index():
@@ -250,10 +263,16 @@ def index():
 
 @app.route('/login', methods=['POST'])
 def login():
-    UpdateRatingConst()
+    NowTime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    NonwDate = NowTime.strftime("%Y-%m-%d")
+    if RatingConstUpdateDate is None or RatingConstUpdateDate < NonwDate:
+        UpdateRatingConst()
+
+
+
     username = request.form['username']
     password = request.form['password']
-    segaLogin = SegaLogin(username,password)
+    segaLogin = SegaLogin(username, password)
     if segaLogin.Login():
         session = segaLogin.IntoGenere()
         if session:
@@ -270,11 +289,6 @@ def login():
                 return render_template_string(content, file_content=file_content)
 
     # 返回文件路径和内容
-
-
-
-
-
 
 
 if __name__ == '__main__':
